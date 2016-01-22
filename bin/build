@@ -1,0 +1,127 @@
+#!/usr/bin/env node
+(function(define) {'use strict'
+	define("latte", ["require", "exports", "module", "window"], 
+		function(require, exports, module, window) {
+			var Path = require("path")
+				, latte_lib = require("latte_lib")
+				, Fs = latte_lib.fs;
+			var GetConfig = function() {
+				var config;
+				var index = process.argv.indexOf("-c");
+				if(index != -1) {
+					config = process.argv[index+1];
+				}
+				config = config || ".latte/build.json";
+				var buildConfigPath = Path.join(process.cwd()+"/"+config);
+				var buildConfig;
+				try {
+					buildConfig = require(buildConfigPath);
+				}catch(e) {
+					return null;
+				}
+				return buildConfig;
+			};
+
+			var build = function() {
+				//var applyArray = Array.prototype.splice.call(arguments, 1);
+	 			var config = GetConfig();
+	 			
+	 			var packageJson;
+				try {
+					packageJson = require(process.cwd() + "/" + "package.json");
+				}catch(e) {
+					packageJson = {};
+				}
+	         	var config = JSON.parse(
+		           latte_lib.format.templateStringFormat(JSON.stringify(config), packageJson)
+	         	);
+	         	var funcs = config.commands.map(function(command) {
+	             	
+	             	var handle = build[command.command];
+	             	if(!handle) {
+	             		throw "no find module " + command.command; 
+	             	}
+	             	return handle(command, config);
+	         	});
+	         	latte_lib.async.series(funcs, function(error) {
+		             if(error) {
+		               console.log("buiild not ok");
+		               return require("../clean")(config);
+		             }
+		             console.log("build ok!");
+	         	});
+
+
+			};
+			(function() {
+				this.mergerFile = function(command, keys){
+					return function(callback) {
+						var files = [];
+						var cwd = process.cwd();
+						var type = "." + command.type + ".js";
+						var read = function(path) {
+							if(!command.ignores || command.ignores.indexOf(path) == -1) {
+								var stat = Fs.lstatSync(cwd + "/" + path);
+								if(stat.isFile()) {
+									if(Path.extname(path) == type) {
+										file.push(path);
+									}
+								}else if(stat.isDirectory()) {
+									Fs.readdirSync(path).forEach(function(filename) {
+										read(path + "/" + filename);
+									});
+								}else if(stat.isSymbolicLink()) {
+									try {
+										Fs.readdirSync(path).forEach(function(filename) {
+											read(path + "/" + filename);
+										});
+									}catch(e) {
+										files.push(path);
+									}
+								}
+							}
+						}
+						command.in.forEach(function(filename) {
+							read(filename);
+						});
+						var datas = files.map(function(filename) {
+							return Fs.readFileSync(cwd + "/" + filename);
+						});
+						var data = datas.join("\n");
+						data = latte_lib.format.templateStringFormat(data, keys);
+						Fs.writeFile(cwd + "/"+command.out , data, callback);
+					}
+				}
+				this.miniFile = function(command, keys) {
+					return function(callback) {
+							var files = [];
+							var cwd = process.cwd();
+							var type = "."+(command.type || "js");
+							var read = function(path) {
+								if(!command.ignores || command.ignores.indexOf(path) == -1 ) {
+									var stat = Fs.lstatSync(cwd + "/"+path);
+									if(stat.isFile()) {
+										if(Path.extname(path) == type){
+											files.push(path);
+										}
+
+									}else{
+											Fs.readdirSync(path).forEach(function(filename) {
+												read(path+"/"+filename);
+											});
+									}
+								};
+							}
+							command.in.forEach(function(filename) {
+									read(filename);
+							});
+							var uglifyJs = require("uglify-js");
+							var result = uglifyJs.minify(files);
+							var data = latte_lib.format.templateStringFormat(result.code, keys);
+							Fs.writeFile(cwd + "/"+command.out , data, callback);
+					};
+				}
+			}).call(build);
+			module.exports = build;
+		});
+})(typeof define === "function"? define: function(name, reqs, factory) { factory(require, exports, module); });
