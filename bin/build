@@ -25,7 +25,9 @@
 			var build = function() {
 				//var applyArray = Array.prototype.splice.call(arguments, 1);
 	 			var config = GetConfig();
-	 			
+	 			if(!config) {
+	 				return console.log("not find config");
+	 			}
 	 			var packageJson;
 				try {
 					packageJson = require(process.cwd() + "/" + "package.json");
@@ -120,6 +122,57 @@
 							var data = latte_lib.format.templateStringFormat(result.code, keys);
 							Fs.writeFile(cwd + "/"+command.out , data, callback);
 					};
+				}
+				this.tscFile = function(command, keys) {
+					return function(callback) {
+						var files = [];
+						var cwd = process.cwd();
+						var argv = process.argv;
+						console.log(command);
+						var files = [];
+						var type = "."+command.type;
+						var read = function(path) {
+							if(!command.ignores || command.ignores.indexOf(path) == -1 ) {
+								var stat = Fs.lstatSync(cwd + "/"+path);
+								if(stat.isFile()) {
+									if(Path.extname(path) == type){
+										files.push(path);
+									}
+
+								}else{
+									Fs.readdirSync(path).forEach(function(filename) {
+										read(path+"/"+filename);
+									});
+								}
+							};
+						}
+						command.in.forEach(function(filename) {
+							read(filename);
+						});
+						var filename = ".latte/buildFiles";
+						latte_lib.fs.writeFileSync(filename, files.join("\n"));
+						process.argv = [process.argv[0], "tsc", "-d", "@"+filename, "--out", command.out, "-t" , "ES5","--sourceMap","--noEmitOnError", "--experimentalDecorators"];
+						require("typescript/lib/tsc");
+						callback();
+					}
+				}
+				this.copyFile = function(command, keys) {
+					return function(callback) {
+						console.log(command);
+						if(latte_lib.isArray(command.in)) {
+							command.in.forEach(function(src, i) {
+							var stat = latte_lib.fs.stat(src);
+								if(stat.isFile()) {
+									latte_lib.fs.writeFileSync(
+									src.out[i], latte_lib.fs.readFileSync(src));
+								}else{
+									
+								}
+							});
+						}
+						
+						
+					}
 				}
 			}).call(build);
 			module.exports = build;
