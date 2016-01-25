@@ -37,26 +37,61 @@
 	         	var config = JSON.parse(
 		           latte_lib.format.templateStringFormat(JSON.stringify(config), packageJson)
 	         	);
+	         	var buildFunc ,cleanFunc;
+	         	buildFunc = cleanFunc = function(callback) {
+	         		callback && callback();
+	         	};
 	         	if(config.clean) {
+	         		cleanFunc = function(callback) {
+	         			var funcs = config.clean.map(function(command) {
+		         			var handle = build.clean[command.command];
+			             	if(!handle) {
+			             		throw "no find module " + command.command; 
+			             	}
+			             	return handle(command, config);
+		         		});
+		         		latte_lib.async.series(funcs, function(error) {
+				             if(error) {
+				               console.log("clean not ok");
+				               return 
+				             }
+				             callback && callback();
+				             //console.log("build ok!");
+			         	});
+	         		}
+	         		
 
 	         	}
-	         	var funcs = config.build.map(function(command) {	             	
-	             	var handle = build[command.command];
-	             	if(!handle) {
-	             		throw "no find module " + command.command; 
-	             	}
-	             	return handle(command, config);
-	         	});
-	         	latte_lib.async.series(funcs, function(error) {
-		             if(error) {
-		               console.log("buiild not ok");
-		               return require("../clean")(config);
-		             }
-		             console.log("build ok!");
+	         	if(config.build) {
+	         		buildFunc = function(callback) {
+	         			var funcs = config.build.map(function(command) {	             	
+			             	var handle = build.build[command.command];
+			             	if(!handle) {
+			             		throw "no find module " + command.command; 
+			             	}
+			             	return handle(command, config);
+			         	});
+			         	latte_lib.async.series(funcs, function(error) {
+				             if(error) {
+				               console.log("buiild not ok");
+				               return clean();
+				             }
+				             
+			         	});
+	         		}
+	         		
+	         	}
+	         	cleanFunc(function(err) {
+	         		//console.log("clean ok");
+	         		buildFunc();
 	         	});
 
 
 			};
+			(function() {
+				this.build = {};
+				this.clean = {};
+			}).call(build);
 			(function() {
 				this.mergerFile = function(command, keys){
 					return function(callback) {
@@ -200,6 +235,11 @@
 					}
 					*/
 					var copyFile = function(fIn, fOut) {
+						try{
+							latte_lib.fs.mkdirSync(Path.dirname(fOut));
+						}catch(e) {
+
+						}						
 						files.push({
 							key: fIn,
 							value: fOut
@@ -309,12 +349,39 @@
 						
 					}
 				}
+				
+			}).call(build.build);
+			(function() {
 				this.clean = function(command, keys) {
-					return function(callback) {
+					var removeDir = function(dirName, callback) {
+						//latte_lib.fs.removeDir(dirName);
+						var exec = require('child_process').exec,child;
+
+						child = exec('rm -rf '+dirName,function(err,out) { 
+						  err && console.log(err); 
+						  callback(err);
+						});
+					}
+					var removeFile = function(fileName, callback) {
+						latte_lib.fs.unlinkSync(dirName);
 						callback();
 					}
+					return function(callback){
+						try{
+							var stat = latte_lib.fs.lstatSync(command.in);
+						}catch(e) {
+							return callback();
+						}
+						
+						if(stat.isDirectory()) {
+							removeDir(command.in, callback);
+						}else{
+							removeFile(command.in, callback);
+						}
+						//callback();
+					}
 				}
-			}).call(build);
+			}).call(build.clean);
 			module.exports = build;
 		});
 })(typeof define === "function"? define: function(name, reqs, factory) { factory(require, exports, module); });
