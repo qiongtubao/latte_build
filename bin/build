@@ -37,8 +37,10 @@
 	         	var config = JSON.parse(
 		           latte_lib.format.templateStringFormat(JSON.stringify(config), packageJson)
 	         	);
-	         	var funcs = config.commands.map(function(command) {
-	             	
+	         	if(config.clean) {
+
+	         	}
+	         	var funcs = config.build.map(function(command) {	             	
 	             	var handle = build[command.command];
 	             	if(!handle) {
 	             		throw "no find module " + command.command; 
@@ -60,7 +62,7 @@
 					return function(callback) {
 						var files = [];
 						var cwd = process.cwd();
-						var type = "." + command.type + ".js";
+						var type = "." + command.type || ".js";
 						var read = function(path) {
 							if(!command.ignores || command.ignores.indexOf(path) == -1) {
 								var stat = Fs.lstatSync(cwd + "/" + path);
@@ -89,21 +91,33 @@
 						var datas = files.map(function(filename) {
 							return Fs.readFileSync(cwd + "/" + filename);
 						});
+						var time = Date.now();
 						var data = datas.join("\n");
 						data = latte_lib.format.templateStringFormat(data, keys);
-						Fs.writeFile(cwd + "/"+command.out , data, callback);
+						latte_lib.fs.writeFileSync(cwd + "/"+command.out , data);
+						console.log("mini over:", Date.now() - time + "ms");
 					}
 				}
-				this.miniFile = function(command, keys) {
+				/**
+					command: {
+						types: <Array>
+						in: <Array or String>
+						out: <String>
+						ignores: <Array>
+					}
+				*/
+				this.mini = function(command, keys) {
 					return function(callback) {
 							var files = [];
 							var cwd = process.cwd();
-							var type = "."+(command.type || "js");
+							command.types = command.types || ["js"];
 							var read = function(path) {
 								if(!command.ignores || command.ignores.indexOf(path) == -1 ) {
 									var stat = Fs.lstatSync(cwd + "/"+path);
 									if(stat.isFile()) {
-										if(Path.extname(path) == type){
+										var type = Path.extname(path).substring(1);
+										if(command.types.indexOf(type) != -1) {	
+									
 											files.push(path);
 										}
 
@@ -113,6 +127,9 @@
 											});
 									}
 								};
+							}
+							if(!latte_lib.isArray(command.in)) {
+								command.in = [command.in];
 							}
 							command.in.forEach(function(filename) {
 									read(filename);
@@ -133,7 +150,7 @@
 						var type = "."+command.type;
 						var read = function(path) {
 							if(!command.ignores || command.ignores.indexOf(path) == -1 ) {
-								var stat = Fs.lstatSync(cwd + "/"+path);
+								var stat = Fs.lstatSync(path);
 								if(stat.isFile()) {
 									if(Path.extname(path) == type){
 										files.push(path);
@@ -150,28 +167,151 @@
 							read(filename);
 						});
 						var filename = ".latte/buildFiles";
-						latte_lib.fs.writeFileSync(filename, files.join("\n"));
+						if(process.argv.indexOf("-debug")) {
+							console.log(files);
+						}
+						try {
+							latte_lib.fs.writeFileSync(filename, files.join("\n"));
+						}catch(e) {
+							console.log(e.stack);
+						}
+						
 						process.argv = [process.argv[0], "tsc", "-d", "@"+filename, "--out", command.out, "-t" , "ES5","--sourceMap","--noEmitOnError", "--experimentalDecorators"];
 						require("typescript/lib/tsc");
 						callback();
 					}
 				}
-				this.copyFile = function(command, keys) {
-					return function(callback) {
-						console.log(command);
-						if(latte_lib.isArray(command.in)) {
-							command.in.forEach(function(src, i) {
-							var stat = latte_lib.fs.stat(src);
-								if(stat.isFile()) {
-									latte_lib.fs.writeFileSync(
-									src.out[i], latte_lib.fs.readFileSync(src));
-								}else{
+				/**
+					command: {
+						types: <Array or String>
+						in: <String>
+						out: <String>
+					}
+
+				*/
+				var child = require("child_process");
+				this.copy = function(command, keys) {
+					var files = [];
+					/**
+					var copyPhotoFile = function(fIn, fOut) {
+						var readFileSteam = latte_lib.fs.createReadStream( fIn );
+						var writeFileSteam = latte_lib.fs.createWriteStream( fOut );
+					 	readFileSteam.pipe( writeFileSteam );
+					}
+					*/
+					var copyFile = function(fIn, fOut) {
+						files.push({
+							key: fIn,
+							value: fOut
+						});
+						//latte_lib.fs.writeFileSync(fOut, latte_lib.fs.readFileSync(fIn, "utf8"), "utf8");
+						//var readFileSteam = latte_lib.fs.createReadStream( fIn );
+						//var writeFileSteam = latte_lib.fs.createWriteStream( fOut );
+					 	//readFileSteam.pipe( writeFileSteam );
+					};
+					var copyDir = function(dIn, dOut) {
+						var files = latte_lib.fs.readdirSync(dIn);
+						files.forEach(function(file) {
+							var stat = latte_lib.fs.lstatSync(dIn + "/" + file);
+							if(stat.isDirectory()) {
+								copyDir(dIn + "/"+ file, dOut+"/" + file);
+							}else{
+								var type = Path.extname(file).substring(1);
+								if(command.types.indexOf(type) != -1) {
+									
+									copyFile(dIn + "/"+ file, dOut + "/" + file);
 									
 								}
+							}
+						});
+					}
+					return function(callback) {
+						
+						var stat = latte_lib.fs.lstatSync(command.in);
+						if(stat.isFile()) {
+							copyFile(command.in, command.out);
+						}else{
+							copyDir(command.in, command.out);
+						}
+
+						if(files.length > 20) {
+							//open file too many will throw Error
+							var time = Date.now();
+							var runs = [];
+							var allLength = files.length;
+							var access = 0;
+							var fp = function(work) {
+								var o = files.shift();
+								if(!o) {
+									//console.log("work over:",work.id);
+									work.kill();
+									if(runs.length == 0) {
+										console.log("copy over :", access, allLength, Date.now() - time + "ms" );
+										callback();
+									}
+									return;
+								}
+								runs.push(o.key);
+								work.send({
+									type: "copy",
+									key: o.key,
+									value: o.value
+								});
+							}
+							var fpok = function(m,work) {
+								var index = runs.indexOf(m.key);
+								if(index != -1) {
+									runs.splice(index, 1);
+								}
+								if(m.err) {
+									res.push(m.key);
+								}else{
+									access++;
+								}
+								fp(work);
+							}
+							var childs =[];
+							var createWork = function(i) {
+								var work= child.fork(Path.join(__dirname,"../lib/child.js"));
+								work.id = i;
+								work.on("message", function(m) {
+									fpok(m,work);
+								});
+								work.on("error", function() {
+									createWork(work.id);
+								});
+								fp(work);
+								childs[i] = work;
+							}
+							var len = require("os").cpus().length;
+							for(var i = 0; i < len; i++) {
+								createWork(i);
+							}
+						}else{
+							var copyModule = require("../lib/copy");	
+							var time = Date.now();
+							var funcs = files.map(function(o) {
+								return function(cb) {
+									copyModule(o.key, o.value, cb);
+								}	
 							});
+							latte_lib.async.parallel(funcs, function() {
+								console.log("copy over :", files.length, files.length, Date.now() - time + "ms");
+								callback();
+							});
+							
+							
 						}
 						
+
+						//callback();
 						
+						
+					}
+				}
+				this.clean = function(command, keys) {
+					return function(callback) {
+						callback();
 					}
 				}
 			}).call(build);
