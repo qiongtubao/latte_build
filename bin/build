@@ -130,7 +130,7 @@
 						var data = datas.join("\n");
 						data = latte_lib.format.templateStringFormat(data, keys);
 						latte_lib.fs.writeFileSync(cwd + "/"+command.out , data);
-						console.log("mini over:", Date.now() - time + "ms");
+						console.log("mergerFile over:", Date.now() - time + "ms");
 					}
 				}
 				/**
@@ -141,11 +141,150 @@
 						ignores: <Array>
 					}
 				*/
+				this.miniDir = function(command, key) {
+					return function(callback) {
+						var files = [];
+						var cwd = process.cwd();
+						command.types = command.types || ["js", "json"];
+						var read = function(dir, path) {
+							if(!command.ignores || command.ignores.indexOf(path) == -1) {
+								var stat = Fs.lstatSync(cwd + "/"+ dir + path);
+								if(stat.isFile()) {
+									var type = Path.extname(path).substring(1);
+									if(command.types.indexOf(type) != -1) {
+										//files[dir + path] = command.out + path;
+										Fs.mkdirSync(Path.dirname(cwd + "/" +command.out + path));
+										files.push({
+											key: cwd + "/" + dir + path,
+											value: cwd + "/" +command.out + path
+										});
+									}
+								}else{
+									Fs.readdirSync(dir + path).forEach(function(filename) {
+										read(dir, path +"/"+filename);
+									});
+								}
+							}
+						}
+						if(!latte_lib.isArray(command.in)) {
+							command.in = [command.in];
+						}
+						command.in.forEach(function(filename) {
+							read(filename, "");
+						});
+
+
+						var time = Date.now();
+						var runs = [];
+						var allLength = files.length;
+						var access = 0;
+						var fp = function(work) {
+							var o = files.shift();
+							if(!o) {
+								//console.log("work over:",work.id);
+								work.kill();
+								if(runs.length == 0) {
+									console.log("copy over :", access, allLength, Date.now() - time + "ms" );
+									callback();
+								}
+								return;
+							}
+							runs.push(o.key);
+							work.send({
+								type: "miniDir",
+								key: o.key,
+								value: o.value
+							});
+						}
+						var fpok = function(m,work) {
+							var index = runs.indexOf(m.key);
+							if(index != -1) {
+								runs.splice(index, 1);
+							}
+							if(m.err) {
+								console.log(m.err);
+								files.push({
+									key: m.key,
+									value: m.value
+								});
+							}else{
+								access++;
+							}
+							fp(work);
+						}
+						var childs =[];
+						var createWork = function(i) {
+							var work= child.fork(Path.join(__dirname,"../lib/child.js"));
+							work.id = i;
+							work.on("message", function(m) {
+								fpok(m,work);
+							});
+							work.on("error", function() {
+								createWork(work.id);
+							});
+							fp(work);
+							childs[i] = work;
+						}
+						var len = require("os").cpus().length;
+						for(var i = 0; i < len; i++) {
+							createWork(i);
+						}
+
+
+						/**
+						var funcs = [];
+						var uglifyJs = require("uglify-js");
+						for(var key in files) {
+							var type = Path.extname(key).substring(1);
+							switch(type) {
+								case "json":
+									var data = Fs.readFileSync(key);
+									data = data.split("\n").join(" ");
+									var t = [];
+									var inString = false;
+									for (var i = 0, len = data.length; i < len   ; i++) {
+										var c = data.charAt(i);
+										if (inString && c === inString  ) {
+											// TODO: \\"
+											if (data.charAt(i - 1) !== '\\') {
+												inString = false;
+											}
+										} else if (!inString && (c === '"' || c === "'")) {
+											inString = c;
+										} else if (!inString && (c === ' ' || c === "\t")) {
+											c = '';
+										}
+										t.push(c);
+									}
+									data= t.join('');
+									Fs.writeFileSync(files[key] , data);
+								break;
+								case "js":
+									
+								break;
+								default:
+									var copyModule = require("../lib/copy");	
+									funcs.push(function(cb) {
+										copyModule(key, files[key], cb);
+									});
+								break;
+							}
+							
+							
+						}
+						latte_lib.async.parallel(funcs, function() {
+							callback();
+						});
+						*/
+						//callback();
+					}
+				}
+				
 				this.mini = function(command, keys) {
 					return function(callback) {
 							var files = [];
 							var cwd = process.cwd();
-							command.types = command.types || ["js"];
+							command.types = command.types || ["js", "json"];
 							var read = function(path) {
 								if(!command.ignores || command.ignores.indexOf(path) == -1 ) {
 									var stat = Fs.lstatSync(cwd + "/"+path);
@@ -175,7 +314,8 @@
 							Fs.writeFile(cwd + "/"+command.out , data, callback);
 					};
 				}
-				this.tscFile = function(command, keys) {
+				
+				this.tsc = function(command, keys) {
 					return function(callback) {
 						var files = [];
 						var cwd = process.cwd();
@@ -210,8 +350,8 @@
 						}catch(e) {
 							console.log(e.stack);
 						}
-						
-						process.argv = [process.argv[0], "tsc", "-d", "@"+filename, "--out", command.out, "-t" , "ES5","--sourceMap","--noEmitOnError", "--experimentalDecorators"];
+						command.module = command.module || "commonjs" || "amd";
+						process.argv = [process.argv[0], "tsc", "-d", "@"+filename, "--out", command.out, "-t" , "ES5","--sourceMap","--noEmitOnError", "--experimentalDecorators", "--module", command.module];
 						require("typescript/lib/tsc");
 						callback();
 					}
@@ -257,7 +397,7 @@
 								copyDir(dIn + "/"+ file, dOut+"/" + file);
 							}else{
 								var type = Path.extname(file).substring(1);
-								if(command.types.indexOf(type) != -1) {
+								if(!command.types || command.types.indexOf(type) != -1) {
 									
 									copyFile(dIn + "/"+ file, dOut + "/" + file);
 									
