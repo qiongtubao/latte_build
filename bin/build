@@ -128,19 +128,19 @@
 										
 									}
 								}else if(stat.isDirectory()) {
-									Fs.readdirSync(path).forEach(function(filename) {
-										read(path + "/" + filename);
+									Fs.readdirSync(path).forEach(function(p) {
+										read(path + "/" + p);
 									});
 								}else if(stat.isSymbolicLink()) {
 									try {
-										Fs.readdirSync(path).forEach(function(filename) {
-											read(path + "/" + filename);
+										Fs.readdirSync(path).forEach(function(path) {
+											read(path + "/" + path);
 										});
 									}catch(e) {
 										if(!command.mini) {
-											files.push(Fs.readFileSync(cwd + "/" + filename));
+											files.push(Fs.readFileSync(cwd + "/" + path));
 										}else{
-											files.push(cwd + "/" + filename);
+											files.push(cwd + "/" + path);
 										}										
 									}
 								}
