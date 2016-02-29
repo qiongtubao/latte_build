@@ -97,50 +97,10 @@
 				this.clean = {};
 			}).call(build);
 			(function() {
-				/**
-				this.mergerFile = function(command, keys){
-					return function(callback) {
-						var files = [];
-						var cwd = process.cwd();
-						var type = "." + command.type || ".js";
-						var read = function(path) {
-							if(!command.ignores || command.ignores.indexOf(path) == -1) {
-								var stat = Fs.lstatSync(cwd + "/" + path);
-								if(stat.isFile()) {
-									if(Path.extname(path) == type) {
-										file.push(path);
-									}
-								}else if(stat.isDirectory()) {
-									Fs.readdirSync(path).forEach(function(filename) {
-										read(path + "/" + filename);
-									});
-								}else if(stat.isSymbolicLink()) {
-									try {
-										Fs.readdirSync(path).forEach(function(filename) {
-											read(path + "/" + filename);
-										});
-									}catch(e) {
-										files.push(path);
-									}
-								}
-							}
-						}
-						command.in.forEach(function(filename) {
-							read(filename);
-						});
-						var datas = files.map(function(filename) {
-							return Fs.readFileSync(cwd + "/" + filename);
-						});
-						var time = Date.now();
-						var data = datas.join("\n");
-						data = latte_lib.format.templateStringFormat(data, keys);
-						latte_lib.fs.writeFileSync(cwd + "/"+command.out , data);
-						console.log("mergerFile over:", Date.now() - time + "ms");
-					}
-				}
-				*/
+				
 				var self = this;
 				this.mini = function(command, keys) {
+					console.log(command.out.length);
 					if(command.out[command.out.length - 1] == "/") {
 						command.mini = 1;
 						return self.merger(command, keys);
@@ -159,11 +119,11 @@
 							if(!command.ignores || command.ignores.indexOf(path) == -1) {
 								var stat = Fs.lstatSync(cwd + "/" + path);
 								if(stat.isFile()) {
-									if(Path.extname(path) == type) {
+									if(!command.types  || command.types.indexOf(Path.extname(path).substring(1)) != -1) {
 										if(!command.mini) {
-											files.push(Fs.readFileSync(cwd + "/" + filename));
+											files.push(Fs.readFileSync(cwd + "/" + path));
 										}else{
-											files.push(cwd + "/" + filename);
+											files.push(cwd + "/" + path);
 										}
 										
 									}
@@ -200,10 +160,12 @@
 							data = latte_lib.format.templateStringFormat(data, keys);
 							latte_lib.fs.writeFileSync(cwd + "/"+command.out , data);
 							console.log("mergerFile over:", Date.now() - time + "ms");
+							callback();
 						}else{
 							var result = uglifyJs.minify(files);
 							var data = latte_lib.format.templateStringFormat(result.code, keys);
 							Fs.writeFile(command.out , data, callback);
+							callback();
 						}
 						
 					}
@@ -315,6 +277,7 @@
 
 				
 			}).call(build.build);
+
 			(function() {
 				this.clean = function(command, keys) {
 					var removeDir = function(dirName, callback) {
