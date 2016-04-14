@@ -27,6 +27,7 @@
 				try {
 					packageJson = require(process.cwd() + "/" + "package.json");
 				}catch(e) {
+
 					packageJson = {};
 				}
 				return packageJson;
@@ -97,7 +98,62 @@
 				this.clean = {};
 			}).call(build);
 			(function() {
-				
+				this.three = function(command, keys) {
+					var three = command.basic ?  Fs.readFileSync(command.basic) : Fs.readFileSync(__dirname+"/../lib/root.js");
+					var leaf = Fs.readFileSync(__dirname+"/../lib/leaf.js");
+					var cwd =  process.cwd();
+					return function(callback) {
+						
+
+						var read = function(path, threePath) {
+							var stat = Fs.lstatSync(cwd + "/" + path);
+							if(stat.isFile()) {
+								var type =Path.extname(path).substring(1);
+								switch(type) {
+									case "json":
+										var d = latte_lib.format.templateStringFormat(leaf, {
+											path: threePath,
+											data: "module.exports="+Fs.readFileSync(cwd + "/" + path).
+										});
+										three += "\n" +d;
+									break;
+									case "js":
+										var d = latte_lib.format.templateStringFormat(leaf, {
+											path: threePath,
+											data: Fs.readFileSync(cwd + "/" + path).
+										});
+										three += "\n" +d;
+									break;
+								}
+								
+							}else if(stat.isDirectory()){
+								Fs.readdirSync(path).forEach(function(p) {
+									read(path + "/" + p, threePath + "/" + p);
+								});
+							}else if(stat.isSymbolicLink()){
+								try {
+									Fs.readdirSync(path).forEach(function(path) {
+										read(path + "/" + p, threePath + "/" + p);
+									});
+								}catch(e) {
+									var d = latte_lib.format.templateStringFormat(leaf, {
+										path: threePath,
+										data: Fs.readFileSync(cwd + "/" + path)
+									});
+									three += "\n" +d;										
+								}
+							}
+							
+						}
+						for(var i in  command.files) {
+							var file = command.files[i];
+							read(i, file);
+						}
+						Fs.writeFileSync(command.out, three);
+
+					}
+				}
+
 				var self = this;
 				this.mini = function(command, keys) {
 					console.log(command.out.length);
