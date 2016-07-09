@@ -113,17 +113,67 @@
 									case "json":
 										var d = latte_lib.format.templateStringFormat(leaf, {
 											path: threePath,
-											data: "module.exports="+Fs.readFileSync(cwd + "/" + path).
+											data: "module.exports="+Fs.readFileSync(cwd + "/" + path)
 										});
 										three += "\n" +d;
 									break;
 									case "js":
+										if(process.argv.indexOf("--debug") != -1) {
+											try {
+												require(cwd+"/"+path);
+											}catch(e) {
+												if(e.code != "MODULE_NOT_FOUND" &&   e.constructor != ReferenceError) {
+													console.error("\x1B[32m"+path+"\x1B[39m");
+													throw e;
+												}
+											}
+										}
+										
+										
+										/**
+
+										because \\$& change \\{{data}} ??
 										var d = latte_lib.format.templateStringFormat(leaf, {
 											path: threePath,
-											data: Fs.readFileSync(cwd + "/" + path).
-										});
+											data: Fs.readFileSync(cwd + "/" + path)
+										});				
+										**/
+
+										var d = ['(function(define) {\'use strict\'',
+										'define("' + threePath+ '", ["require", "exports", "module", "window"],',
+									 	'function(require, exports, module, window) {',
+									 		Fs.readFileSync(cwd + "/" + path),
+									 	'});',
+										'})(typeof define === "function"? define: function(name, reqs, factory) { factory(require, exports, module); });'].join("\n");
+
 										three += "\n" +d;
 									break;
+									case "css":
+									case "html":
+
+										var d = latte_lib.format.templateStringFormat(leaf, {
+											path: threePath,
+											data: "module.exports='"+Fs.readFileSync(cwd + "/" + path).replace(/[\n]/g,"").replace(/'/g, "\"").toString()+"'"
+										});
+										three +="\n" + d;
+										break;
+									case "png":
+									case "jpg":
+										var fsData = "module.exports='data:image/png;base64,"+require("fs").readFileSync(cwd + "/" + path).toString("base64").toString("utf8")+"'";	
+										var d = latte_lib.format.templateStringFormat(leaf, {
+											path: threePath,
+											data: fsData
+										});									
+										three += "\n" + d;	
+									break;
+									case "svg":
+										var d = latte_lib.format.templateStringFormat(leaf, {
+											path: threePath,
+											data: "module.exports='"+Fs.readFileSync(cwd + "/" + path).replace(/[\n]/g,"").replace(/'/g, "\"").replace(/ width/g, " _width").replace(/ height/g, " _height").toString()+"'"
+										});
+										three +="\n" + d;
+									break;
+
 								}
 								
 							}else if(stat.isDirectory()){
@@ -149,21 +199,26 @@
 							var file = command.files[i];
 							read(i, file);
 						}
+						if(command.init) {
+							three += "\n" + Fs.readFileSync(cwd + "/" + command.init);
+						}
 						Fs.writeFileSync(command.out, three);
-
+						callback();
 					}
 				}
 
 				var self = this;
 				this.mini = function(command, keys) {
-					console.log(command.out.length);
-					if(command.out[command.out.length - 1] == "/") {
-						command.mini = 1;
-						return self.merger(command, keys);
-					}else{
-						command.mini = 1;
-						return self.copy(command, keys);
+					return function(callback) {
+						if(command.out[command.out.length - 1] == "/") {
+							command.mini = 1;
+							return self.merger(command, keys)(callback);
+						}else{
+							command.mini = 1;
+							return self.copy(command, keys)(callback);
+						}
 					}
+					
 				}
 
 				this.merger = function(command, keys) {
@@ -211,6 +266,7 @@
 						});
 						*/
 						var time = Date.now();
+
 						if(!command.mini) {
 							var data = files.join("\n");
 							data = latte_lib.format.templateStringFormat(data, keys);
@@ -258,6 +314,7 @@
 							read(filename, "");
 						});
 						var cpus =  require("os").cpus().length;
+
 						if(files.length > cpus) {
 							var time = Date.now();
 							var runs = [];
@@ -314,6 +371,7 @@
 								createWork(i);
 							}
 						}else{
+							
 							var copyModule = require("../lib/copy");
 							var time = Date.now();
 							var funcs = files.map(function(o) {
