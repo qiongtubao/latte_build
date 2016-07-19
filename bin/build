@@ -99,7 +99,7 @@
 			}).call(build);
 			(function() {
 				this.three = function(command, keys) {
-					var three = command.basic ?  Fs.readFileSync(command.basic) : Fs.readFileSync(__dirname+"/../lib/root.js");
+					var three = command.basic ?  Fs.readFileSync(command.basic) : command.root? Fs.readFileSync(__dirname+"/../lib/root.js"): "";
 					var leaf = Fs.readFileSync(__dirname+"/../lib/leaf.js");
 					var cwd =  process.cwd();
 					return function(callback) {
@@ -194,6 +194,21 @@
 								}
 							}
 							
+						}
+						command.files = command.files || {};
+						if(command.files_modules) {
+							if(!latte_lib.isArray(command.files_modules)) {
+								command.files_modules = [command.files_modules];
+							}
+							var result = {};
+							command.files_modules.forEach(function(o) {
+
+								if(keys.files_modules[o]) {
+									result = latte_lib.merger(result, keys.files_modules[o]);
+								}
+							});
+							
+							command.files = latte_lib.merger(result, command.files);
 						}
 						for(var i in  command.files) {
 							var file = command.files[i];
