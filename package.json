@@ -10,7 +10,8 @@
 		"url": "https://github.com/qiongtubao/latte_build.git"
 	},
 	"bin": {
-	    "build": "bin/build"
+	    "buildJs": "bin/buildJs",
+	    "buildHtml": "bin/buildHtml"
   	},
 	"dependencies": {
 		"uglify-js": "*"

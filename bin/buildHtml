@@ -1,0 +1,94 @@
+#!/usr/bin/env node
+(function(define) {'use strict'
+	define("latte/buildHtml", ["require", "exports", "module", "window"], 
+		function(require, exports, module, window) {
+
+		
+			var Path = require("path")
+				, latte_lib = require("latte_lib");
+
+					var doCommand = function(command, callback) {
+						var compile = require("../lib/html/index.js");
+						var latte_lib = require("latte_lib");
+						var Fs = latte_lib.fs;
+						console.log(command);
+						var config = JSON.parse(Fs.readFileSync(command.inConfig));
+						var result = compile.compile(config);
+						if(command.outDom) {
+							Fs.writeFileSync(command.outDom, result.html);
+						}
+						if(command.outData) {
+							Fs.writeFileSync(command.outData, result.data);
+						}
+						if(command.inData) {
+							result.data = Fs.writeFileSync(command.inData);
+						}
+						if(command.outHtml) {
+							var indexHtml = compile.insert(command.inHtml|| __dirname+"/../lib/html/default.html", result);
+							Fs.writeFileSync(command.outHtml, indexHtml);	
+						}								
+
+					}
+
+					var GetConfig = function() {
+						var config;
+						var index = process.argv.indexOf("-c");
+						if(index != -1) {
+							config = process.argv[index+1];
+						}
+						config = config || ".latte/buildHtml.json";
+						var buildConfigPath = Path.join(process.cwd()+"/"+config);
+						var buildConfig;
+						try {
+							buildConfig = require(buildConfigPath);
+						}catch(e) {
+							return null;
+						}
+						return buildConfig;
+					};
+				
+			
+			module.exports = function(command) {
+				var config = GetConfig();
+				var commands ;
+				
+				commands = config.build[command] || config.build["all"] ;
+				if(!commands) {
+					return console.log("config Error no build command");
+				}
+				
+				var getKey = function(key) {
+					
+					if(latte_lib.isString(key)) {
+						
+						return getKey(config.build[key]);
+					}else if(!latte_lib.isArray(key)) {
+						return [key];
+					}else {
+						var result = [];
+						key.forEach(function(o) {
+							result = result.concat(getKey(o));
+						});
+						return result;
+					}
+				}
+
+				var result = getKey(commands);
+				var funcs = result.map(function(c) {
+					return function(callback) {
+						doCommand(c, callback);
+					}
+				});
+				var startTime = Date.now();
+				latte_lib.async.series(funcs, function(err) {
+					if(err) {
+						return console.log(err);
+					}
+					console.log((Date.now() - startTime) +"ms");
+				});
+
+				
+			}
+
+	});
+})(typeof define === "function"? define: function(name, reqs, factory) { factory(require, exports, module); });
