@@ -12,7 +12,7 @@
 				if(index != -1) {
 					config = process.argv[index+1];
 				}
-				config = config || ".latte/build.json";
+				config = config || ".latte/buildJs.json";
 				var buildConfigPath = Path.join(process.cwd()+"/"+config);
 				var buildConfig;
 				try {
