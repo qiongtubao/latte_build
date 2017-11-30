@@ -1,0 +1,16 @@
+{
+	"link": {
+		"link": {
+			"type": "link",
+			"inPath": "./test.js",
+			"outPath": ".test2.js"
+		}
+	},
+	"copy": {
+		"copy": {
+			"type": "copy",
+			"inPath": "../lib",
+			"outPath": "./copy"
+		}
+	}
+}
