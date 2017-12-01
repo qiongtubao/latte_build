@@ -1,16 +1,39 @@
 {
 	"link": {
-		"link": {
-			"type": "link",
-			"inPath": "./test.js",
-			"outPath": ".test2.js"
+		"commands": {
+			"link": {
+				"type": "link",
+				"inPath": "./test.js",
+				"outPath": "./test2.js"
+			}
 		}
+		
 	},
 	"copy": {
-		"copy": {
-			"type": "copy",
-			"inPath": "../lib",
-			"outPath": "./copy"
+		"commands": {
+			"copy": {
+				"type": "copy",
+				"inPath": "../lib",
+				"outPath": "./copy"
+			}
+		}
+		
+	},
+	"remove": {
+		"commands": {
+			"remove": {
+				"type": "remove",
+				"path": "./test2.js"
+			}
+		}
+	},
+	"mini": {
+		"commands": {
+			"remove": {
+				"type": "miniJs",
+				"inPath": "./test.js",
+				"outPath": "./test3.js"
+			}
 		}
 	}
 }
