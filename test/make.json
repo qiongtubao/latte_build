@@ -27,12 +27,21 @@
 			}
 		}
 	},
-	"mini": {
+	"miniJs": {
 		"commands": {
-			"remove": {
+			"mini": {
 				"type": "miniJs",
 				"inPath": "./test.js",
 				"outPath": "./test3.js"
+			}
+		}
+	},
+	"miniCss": {
+		"commands": {
+			"miniCss": {
+				"type": "miniCss",
+				"inPath": "./test.css",
+				"outPath": "./test2.css"
 			}
 		}
 	}
