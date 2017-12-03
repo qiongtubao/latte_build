@@ -44,5 +44,15 @@
 				"outPath": "./test2.css"
 			}
 		}
+	},
+	"mergeJs": {
+		"commands": {
+			"mergeJs": {
+				"type": "mergeJs",
+				"inPath": "./test.js",
+				"outPath": "./test4.js",
+				"alias": "latte_test"
+			}
+		}
 	}
 }
