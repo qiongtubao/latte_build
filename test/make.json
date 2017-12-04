@@ -54,5 +54,14 @@
 				"alias": "latte_test"
 			}
 		}
+	},
+	"miniImage": {
+		"commands": {
+			"miniImage": {
+				"type": "miniImage",
+				"inPath": "./img",
+				"outPath": "./img2"
+			}
+		}
 	}
 }

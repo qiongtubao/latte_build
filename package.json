@@ -8,6 +8,9 @@
       "resolved": "http://registry.npm.taobao.org/commander/download/commander-2.12.2.tgz",
       "version": "2.12.2"
     },
+    "imagemin": "^5.3.1",
+    "imagemin-jpegtran": "^5.0.2",
+    "imagemin-pngquant": "^5.0.1",
     "latte_lib": {
       "version": "1.0.4"
     },
