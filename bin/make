@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+var Path = require('path');
+var getConfig = function() {
+	var config;
+	var index = process.argv.indexOf("-c");
+	if(index != -1) {
+		config = process.argv[index+1];
+	}
+	config = config || "./.latte/make.json";
+	var buildConfigPath = Path.join(process.cwd()+"/"+config);
+	var buildConfig;
+	try {
+		buildConfig = require(buildConfigPath);
+	}catch(e) {
+		return null;
+	}
+	return buildConfig;
+}
+var make = require('../lib');
+module.exports = function(command) {
+	var config = getConfig();
+	var startTime = Date.now();
+	make.make(config, command || "main", function(err) {
+		if(err) {
+			return console.log('make failed:', err);
+		}
+		console.log('make sucess:', Date.now() - startTime , "ms");
+	});
+}
