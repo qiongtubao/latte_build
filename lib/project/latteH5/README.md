@@ -1,0 +1,1 @@
+需要进去html内引入latte_lib.js 以及latte_view.js

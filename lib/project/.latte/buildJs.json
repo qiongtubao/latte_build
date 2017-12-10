@@ -1,0 +1,18 @@
+{
+	"keys": {
+
+	},
+	"build": [
+		{
+			"command": "three",
+			"types": "js",
+			"files": {
+				"./src": "latte"
+			},
+			"out": "./html/latte.js"
+		}
+	],
+	"files_modules": {
+		
+	}
+}
