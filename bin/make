@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 var Path = require('path');
+var latte_lib = require('latte_lib');
 var getConfig = function() {
 	var config;
 	var index = process.argv.indexOf("-c");
@@ -19,10 +20,11 @@ var getConfig = function() {
 var make = require('../lib');
 module.exports = function(command) {
 	var config = getConfig();
+	config = latte_lib.format.templateJsonFormat(config, config.opts);
 	var startTime = Date.now();
 	make.make(config, command || "main", function(err) {
 		if(err) {
-			return console.log('make failed:', err);
+			return console.log('make failed:', err.message);
 		}
 		console.log('make sucess:', Date.now() - startTime , "ms");
 	});
