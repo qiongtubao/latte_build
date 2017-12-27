@@ -13,6 +13,9 @@ var getConfig = function() {
 	try {
 		buildConfig = require(buildConfigPath);
 	}catch(e) {
+		if(e.code == 'MODULE_NOT_FOUND') {
+			console.error("找不到配置文件路径错误",buildConfigPath);
+		}
 		return null;
 	}
 	return buildConfig;
@@ -20,11 +23,14 @@ var getConfig = function() {
 var make = require('../lib');
 module.exports = function(command) {
 	var config = getConfig();
-	config = latte_lib.format.templateJsonFormat(config, config.opts);
+	if(config == null) {
+		return ;
+	}
+	config = latte_lib.format.templateJsonFormat(config, config.opts || {});
 	var startTime = Date.now();
 	make.make(config, command || "main", function(err) {
 		if(err) {
-			return console.log('make failed:', err.message);
+			return console.log('make failed:', err.message? err.message: err);
 		}
 		console.log('make sucess:', Date.now() - startTime , "ms");
 	});

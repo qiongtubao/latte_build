@@ -1,6 +1,6 @@
 (function(define) {'use strict'
-	define("{{path}}", ["require", "exports", "module", "window"],
- 	function(require, exports, module, window) {
+	define("{{path}}", ["require", "exports", "module", "window","__filename", "__dirname"],
+ 	function(require, exports, module, window, __filename, __dirname) {
  		{{data}}
  	});
 })(typeof define === "function"? define: function(name, reqs, factory) { factory(require, exports, module); });
