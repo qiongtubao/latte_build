@@ -63,5 +63,14 @@
 				"outPath": "./img2"
 			}
 		}
+	},
+	"mini": {
+		"commands": {
+			"mini": {
+				"type": "mini",
+				"inPath": "./mini",
+				"outPath": "./mini2"
+			}
+		}
 	}
 }
